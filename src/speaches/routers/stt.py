@@ -9,6 +9,7 @@ from fastapi import (
     HTTPException,
     Request,
     Response,
+    status,
 )
 from fastapi.responses import StreamingResponse
 from faster_whisper.transcribe import BatchedInferencePipeline, TranscriptionInfo
@@ -116,6 +117,10 @@ def translate_file(
     stream: Annotated[bool, Form()] = False,
     vad_filter: Annotated[bool, Form()] = False,
 ) -> Response | StreamingResponse:
+    # Check max_in_flight_transcriptions limit
+    if config.max_in_flight_transcriptions is not None and transcription_state.active_transcriptions >= config.max_in_flight_transcriptions:
+        return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content="Service Unavailable: Too many transcriptions in flight")
+    
     with transcription_state.track_transcription(), model_manager.load_model(model) as whisper:
         whisper_model = BatchedInferencePipeline(model=whisper) if config.whisper.use_batched_mode else whisper
         segments, transcription_info = whisper_model.transcribe(
@@ -173,6 +178,10 @@ def transcribe_file(
     batch_size: Annotated[int, Form()] = 64,
     beam_size: Annotated[int, Form()] = 5,
 ) -> Response | StreamingResponse:
+    # Check max_in_flight_transcriptions limit
+    if config.max_in_flight_transcriptions is not None and transcription_state.active_transcriptions >= config.max_in_flight_transcriptions:
+        return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content="Service Unavailable: Too many transcriptions in flight")
+    
     print("transcribe_file")
     timestamp_granularities = asyncio.run(get_timestamp_granularities(request))
     if timestamp_granularities != DEFAULT_TIMESTAMP_GRANULARITIES and response_format != "verbose_json":

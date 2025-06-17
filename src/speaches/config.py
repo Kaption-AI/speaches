@@ -85,5 +85,9 @@ class Config(BaseSettings):
     chat_completion_api_key: SecretStr = SecretStr("cant-be-empty")
 
     max_parallel_transcriptions: int | None = Field(
-        default=3, ge=1, description="Maximum number of parallel transcriptions. If the limit is reached, the /health endpoint will return a 503 status code."
+        default=8, ge=1, description="Maximum number of parallel transcriptions. If the limit is reached, the /health endpoint will return a 503 status code."
+    )
+
+    max_in_flight_transcriptions: int | None = Field(
+        default=16, ge=1, description="Maximum number of in-flight transcriptions. If the limit is reached, the transcription endpoints will return a 503 status code immediately."
     )
