@@ -163,7 +163,10 @@ def transcribe_file(
     stream: Annotated[bool, Form()] = False,
     hotwords: Annotated[str | None, Form()] = None,
     vad_filter: Annotated[bool, Form()] = False,
+    batch_size: Annotated[int, Form()] = 64,
+    beam_size: Annotated[int, Form()] = 5,
 ) -> Response | StreamingResponse:
+    print("transcribe_file")
     timestamp_granularities = asyncio.run(get_timestamp_granularities(request))
     if timestamp_granularities != DEFAULT_TIMESTAMP_GRANULARITIES and response_format != "verbose_json":
         logger.warning(
@@ -182,16 +185,21 @@ def transcribe_file(
     if whisper_utils.hf_model_filter.passes_filter(model_card_data):
         with model_manager.load_model(model) as whisper:
             whisper_model = BatchedInferencePipeline(model=whisper) if config.whisper.use_batched_mode else whisper
-            segments, transcription_info = whisper_model.transcribe(
-                audio,
-                task="transcribe",
-                language=language,
-                initial_prompt=prompt,
-                word_timestamps="word" in timestamp_granularities,
-                temperature=temperature,
-                vad_filter=vad_filter,
-                hotwords=hotwords,
-            )
+            transcribe_kwargs = {
+                "audio": audio,
+                "task": "transcribe",
+                "language": language,
+                "initial_prompt": prompt,
+                "word_timestamps": "word" in timestamp_granularities,
+                "temperature": temperature,
+                "vad_filter": vad_filter,
+                "hotwords": hotwords,
+            }
+            if config.whisper.use_batched_mode:
+                transcribe_kwargs["batch_size"] = batch_size
+            if beam_size != 5:
+                transcribe_kwargs["beam_size"] = beam_size
+            segments, transcription_info = whisper_model.transcribe(**transcribe_kwargs)
             segments = TranscriptionSegment.from_faster_whisper_segments(segments)
 
             if stream:

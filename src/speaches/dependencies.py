@@ -67,7 +67,6 @@ KokoroModelManagerDependency = Annotated[KokoroModelManager, Depends(get_kokoro_
 
 security = HTTPBearer()
 
-
 async def verify_api_key(
     config: ConfigDependency, credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)]
 ) -> None:
