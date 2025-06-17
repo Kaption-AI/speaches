@@ -1,6 +1,7 @@
 from functools import lru_cache
 import logging
 from typing import Annotated
+from contextlib import contextmanager
 
 import av.error
 from fastapi import (
@@ -26,6 +27,18 @@ from speaches.executors.whisper.model_manager import WhisperModelManager
 
 logger = logging.getLogger(__name__)
 
+class TranscriptionState:
+    def __init__(self):
+        self.active_transcriptions = 0
+
+    @contextmanager
+    def track_transcription(self):
+        self.active_transcriptions += 1
+        try:
+            yield
+        finally:
+            self.active_transcriptions -= 1
+
 # NOTE: `get_config` is called directly instead of using sub-dependencies so that these functions could be used outside of `FastAPI`
 
 
@@ -37,6 +50,14 @@ def get_config() -> Config:
 
 
 ConfigDependency = Annotated[Config, Depends(get_config)]
+
+
+@lru_cache
+def get_transcription_state() -> TranscriptionState:
+    return TranscriptionState()
+
+
+TranscriptionStateDependency = Annotated[TranscriptionState, Depends(get_transcription_state)]
 
 
 @lru_cache

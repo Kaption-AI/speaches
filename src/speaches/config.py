@@ -83,3 +83,7 @@ class Config(BaseSettings):
     # TODO: document the below configuration options
     chat_completion_base_url: str = "http://localhost:11434/v1"
     chat_completion_api_key: SecretStr = SecretStr("cant-be-empty")
+
+    max_parallel_transcriptions: int | None = Field(
+        default=3, ge=1, description="Maximum number of parallel transcriptions. If the limit is reached, the /health endpoint will return a 503 status code."
+    )

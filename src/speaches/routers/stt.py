@@ -22,7 +22,12 @@ from speaches.api_types import (
     TimestampGranularities,
     TranscriptionSegment,
 )
-from speaches.dependencies import AudioFileDependency, ConfigDependency, WhisperModelManagerDependency
+from speaches.dependencies import (
+    AudioFileDependency,
+    ConfigDependency,
+    TranscriptionStateDependency,
+    WhisperModelManagerDependency,
+)
 from speaches.executors.whisper import utils as whisper_utils
 from speaches.hf_utils import get_model_card_data_from_cached_repo_info, get_model_repo_path
 from speaches.model_aliases import ModelId
@@ -102,6 +107,7 @@ def segments_to_streaming_response(
 def translate_file(
     config: ConfigDependency,
     model_manager: WhisperModelManagerDependency,
+    transcription_state: TranscriptionStateDependency,
     audio: AudioFileDependency,
     model: Annotated[ModelId, Form()],
     prompt: Annotated[str | None, Form()] = None,
@@ -110,7 +116,7 @@ def translate_file(
     stream: Annotated[bool, Form()] = False,
     vad_filter: Annotated[bool, Form()] = False,
 ) -> Response | StreamingResponse:
-    with model_manager.load_model(model) as whisper:
+    with transcription_state.track_transcription(), model_manager.load_model(model) as whisper:
         whisper_model = BatchedInferencePipeline(model=whisper) if config.whisper.use_batched_mode else whisper
         segments, transcription_info = whisper_model.transcribe(
             audio,
@@ -148,6 +154,7 @@ async def get_timestamp_granularities(request: Request) -> TimestampGranularitie
 def transcribe_file(
     config: ConfigDependency,
     model_manager: WhisperModelManagerDependency,
+    transcription_state: TranscriptionStateDependency,
     request: Request,
     audio: AudioFileDependency,
     model: Annotated[ModelId, Form()],
@@ -183,7 +190,7 @@ def transcribe_file(
     model_card_data = get_model_card_data_from_cached_repo_info(cached_repo_info)
     assert model_card_data is not None, cached_repo_info  # FIXME
     if whisper_utils.hf_model_filter.passes_filter(model_card_data):
-        with model_manager.load_model(model) as whisper:
+        with transcription_state.track_transcription(), model_manager.load_model(model) as whisper:
             whisper_model = BatchedInferencePipeline(model=whisper) if config.whisper.use_batched_mode else whisper
             transcribe_kwargs = {
                 "audio": audio,

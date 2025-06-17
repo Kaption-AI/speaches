@@ -1,17 +1,20 @@
 from fastapi import (
     APIRouter,
     Response,
+    status,
 )
 
-from speaches.dependencies import WhisperModelManagerDependency
+from speaches.dependencies import WhisperModelManagerDependency, TranscriptionStateDependency, ConfigDependency
 from speaches.model_aliases import ModelId
 
 router = APIRouter()
 
 
 @router.get("/health", tags=["diagnostic"])
-def health() -> Response:
-    return Response(status_code=200, content="OK")
+def health(transcription_state: TranscriptionStateDependency, config: ConfigDependency) -> Response:
+    if config.max_parallel_transcriptions is not None and transcription_state.active_transcriptions >= config.max_parallel_transcriptions:
+        return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content="Service Unavailable")
+    return Response(status_code=status.HTTP_200_OK, content="OK")
 
 
 # FIX: support non-whisper models
